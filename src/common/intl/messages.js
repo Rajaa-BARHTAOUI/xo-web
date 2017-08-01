@@ -1440,8 +1440,10 @@ var messages = {
   xosanInstallPackOnHosts: 'Install XOSAN pack on these hosts:',
   xosanInstallPack: 'Install {pack} v{version}?',
   xosanNoPackFound: 'No compatible XOSAN pack found for your XenServer versions.',
-  xosanPackRequirements: 'At least one of these version requirements must be satisfied by all the hosts in this pool:'
+  xosanPackRequirements: 'At least one of these version requirements must be satisfied by all the hosts in this pool:',
 
+  // ----- Utils -----
+  formatDuration: '{days, plural, =0 {} one {# day} other {# days}} {hours, plural, =0 {} one {# hour} other {# hours}} {minutes, plural, =0 {} one {# minute} other {# minutes}} {seconds, plural, =0 {} one {# second} other {# seconds}}'
 }
 forEach(messages, function (message, id) {
   if (isString(message)) {
