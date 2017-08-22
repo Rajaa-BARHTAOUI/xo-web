@@ -842,7 +842,7 @@ var messages = {
   usersStatePanel: 'Users',
   srStatePanel: 'Storage state',
   ofUsage: '{usage} (of {total})',
-  ofCPUsUsage: '{usage, number} vCPU{usage, plural, one {} other {s}} (of {total, number} CPU{total, plural, one {} other {s}})',
+  ofCpusUsage: '{usage, number} vCPU{usage, plural, one {} other {s}} (of {total, number} CPU{total, plural, one {} other {s}})',
   noSrs: 'No storage',
   srName: 'Name',
   srPool: 'Pool',
