@@ -278,12 +278,15 @@ export const formatSpeed = (bytes, milliseconds) => humanFormat(
   { scale: 'binary', unit: 'B/s' }
 )
 
-export const formatDuration = nbSecondes => _('formatDuration', {
-  days: ~~(nbSecondes / (3600 * 24)),
-  hours: ~~((nbSecondes % (3600 * 24)) / 3600),
-  minutes: ~~(((nbSecondes % (3600 * 24) % 3600)) / 60),
-  seconds: ~~(((nbSecondes % (3600 * 24) % 3600)) % 60)
-})
+export const parseDuration = seconds => {
+  const days = Math.floor(seconds / 86400)
+  seconds -= days * 86400
+  const hours = Math.floor(seconds / 3600)
+  seconds -= hours * 3600
+  const minutes = Math.floor(seconds / 60)
+  seconds -= minutes * 60
+  return { days, hours, minutes, seconds }
+}
 
 export const parseSize = size => {
   let bytes = humanFormat.parse.raw(size, { scale: 'binary' })

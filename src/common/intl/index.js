@@ -17,7 +17,7 @@ import {
 import locales from './locales'
 import messages from './messages'
 import Tooltip from '.././tooltip'
-import { formatDuration } from '.././utils'
+import { parseDuration } from 'utils'
 
 // ===================================================================
 
@@ -92,7 +92,7 @@ export class FormattedDuration extends Component {
     } = this.props
     const momentDuration = moment.duration(duration)
 
-    return <Tooltip content={formatDuration(momentDuration.asSeconds())}>
+    return <Tooltip content={getMessage('parseDuration', parseDuration(momentDuration.asSeconds()))}>
       <span>{momentDuration.locale(lang).humanize()}</span>
     </Tooltip>
   }
