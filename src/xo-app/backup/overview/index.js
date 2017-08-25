@@ -10,7 +10,7 @@ import React from 'react'
 import SortedTable from 'sorted-table'
 import StateButton from 'state-button'
 import Tooltip from 'tooltip'
-import { addSubscriptions } from 'utils'
+import { addSubscriptions, constructFilter } from 'utils'
 import { createSelector } from 'selectors'
 import {
   Card,
@@ -91,12 +91,19 @@ const JOB_COLUMNS = [
   },
   {
     name: _('jobAction'),
-    itemRenderer: ({ schedule }, isScheduleUserMissing) => <fieldset>
+    itemRenderer: ({ pattern, redirect, schedule }, isScheduleUserMissing) => <fieldset>
       {!isScheduleUserMissing[schedule.id] && <Tooltip content={_('backupUserNotFound')}><Icon className='mr-1' icon='error' /></Tooltip>}
       <Link className='btn btn-sm btn-primary mr-1' to={`/backup/${schedule.id}/edit`}>
         <Icon icon='edit' />
       </Link>
       <ButtonGroup>
+        {pattern !== undefined && <ActionRowButton
+          btnStyle='primary'
+          handler={redirect}
+          handlerParam={pattern}
+          icon='preview'
+          tooltip={_('redirectToMatchedVms')}
+        />}
         <ActionRowButton
           icon='delete'
           btnStyle='danger'
@@ -122,6 +129,10 @@ const JOB_COLUMNS = [
   users: subscribeUsers
 })
 export default class Overview extends Component {
+  static contextTypes = {
+    router: React.PropTypes.object
+  }
+
   constructor (props) {
     super(props)
     this.state = {
@@ -164,6 +175,13 @@ export default class Overview extends Component {
     }
   }
 
+  _redirectToMatchedVms = pattern => {
+    this.context.router.push({
+      pathname: '/home',
+      query: { t: 'VM', s: constructFilter(pattern) }
+    })
+  }
+
   _getScheduleCollection = createSelector(
     () => this.state.schedules,
     () => this.state.scheduleTable,
@@ -176,10 +194,13 @@ export default class Overview extends Component {
       return map(schedules, schedule => {
         const job = jobs[schedule.job]
         const { items } = job.paramsVector
+        const pattern = get(items, '[1].collection.pattern')
 
         return {
           jobId: job.id,
           jobLabel: jobKeyToLabel[job.key] || _('unknownSchedule'),
+          redirect: this._redirectToMatchedVms,
+          pattern,
           // Old versions of XenOrchestra use items[0]
           scheduleTag: get(items, '[0].values[0].tag') || get(items, '[1].values[0].tag') || schedule.id,
           schedule,

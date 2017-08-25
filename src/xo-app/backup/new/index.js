@@ -6,25 +6,41 @@ import GenericInput from 'json-schema-input'
 import getEventValue from 'get-event-value'
 import Icon from 'icon'
 import moment from 'moment-timezone'
+import propTypes from 'prop-types-decorator'
 import React from 'react'
 import Scheduler, { SchedulePreview } from 'scheduling'
 import uncontrollableInput from 'uncontrollable-input'
 import Upgrade from 'xoa-upgrade'
 import Wizard, { Section } from 'wizard'
+import renderXoItem from 'render-xo-item'
+import Tooltip from 'tooltip'
 import { confirm } from 'modal'
-import { connectStore, EMPTY_OBJECT } from 'utils'
+import { Card, CardBlock, CardHeader } from 'card'
 import { Container, Row, Col } from 'grid'
 import { createSelector } from 'reselect'
 import { generateUiSchema } from 'xo-json-schema-input'
-import { getUser } from 'selectors'
 import { SelectSubject } from 'select-objects'
+import { createGetObjectsOfType, getUser } from 'selectors'
 import {
+  connectStore,
+  constructFilter,
+  constructPattern,
+  destructPattern,
+  EMPTY_OBJECT
+} from 'utils'
+import {
+  every,
+  filter,
   forEach,
-  identity,
   isArray,
+  isPlainObject,
   map,
   mapValues,
   noop,
+  pickBy,
+  sampleSize,
+  size,
+  some,
   startsWith
 } from 'lodash'
 
@@ -278,6 +294,103 @@ const BACKUP_METHOD_TO_INFO = {
 
 // ===================================================================
 
+const match = (pattern, value) => {
+  if (isPlainObject(pattern)) {
+    if (size(pattern) === 1) {
+      let op
+      if ((op = pattern.__or) !== undefined) {
+        return some(op, subpattern => match(subpattern, value))
+      }
+      if ((op = pattern.__not) !== undefined) {
+        return !match(op, value)
+      }
+    }
+
+    return isPlainObject(value) && every(pattern, (subpattern, key) => (
+      value[key] !== undefined && match(subpattern, value[key])
+    ))
+  }
+
+  if (isArray(pattern)) {
+    return isArray(value) && every(pattern, subpattern =>
+      some(value, subvalue => match(subpattern, subvalue))
+    )
+  }
+
+  return pattern === value
+}
+
+// ===================================================================
+
+const SAMPLE_SIZE_OF_MATCHED_VMS = 3
+
+@propTypes({
+  pattern: propTypes.object.isRequired
+})
+@connectStore({
+  vms: createGetObjectsOfType('VM')
+})
+class SmartBackupPreview extends Component {
+  static contextTypes = {
+    router: propTypes.object
+  }
+
+  _getMatchedVms = createSelector(
+    () => this.props.pattern,
+    () => this.props.vms,
+    (pattern, vms) => filter(
+      vms,
+      vm => match(pickBy(pattern, val => val != null), vm)
+    )
+  )
+
+  _redirectToMatchedVms = () => {
+    this.context.router.push({
+      pathname: '/home',
+      query: { t: 'VM', s: constructFilter(this.props.pattern) }
+    })
+  }
+
+  render () {
+    const matchedVms = this._getMatchedVms()
+    const nMatchedVms = matchedVms.length
+
+    return <Card>
+      <CardHeader>{_('sampleOfMatchedVms')}</CardHeader>
+      <CardBlock>
+        {nMatchedVms === 0
+          ? <p className='text-xs-center'>{_('noMatchedVms')}</p>
+          : <div>
+            <ul className='list-group'>
+              {sampleSize(
+                map(matchedVms, vm => <li className='list-group-item' key={vm.id}>
+                  {renderXoItem(vm)}
+                </li>),
+                SAMPLE_SIZE_OF_MATCHED_VMS
+              )}
+            </ul>
+            <br />
+            <Tooltip content={_('redirectToMatchedVms')}>
+              <Button
+                className='pull-right'
+                onClick={this._redirectToMatchedVms}
+                btnStyle='primary'
+              >
+                {_('allMatchedVms', {
+                  icon: <Icon icon='preview' />,
+                  nMatchedVms
+                })}
+              </Button>
+            </Tooltip>
+          </div>
+        }
+      </CardBlock>
+    </Card>
+  }
+}
+
+// ===================================================================
+
 @uncontrollableInput()
 class TimeoutInput extends Component {
   _onChange = event => {
@@ -313,22 +426,6 @@ const extractId = value => {
     value = value.id
   }
   return value
-}
-
-const destructPattern = (pattern, valueTransform = identity) => pattern && ({
-  not: !!pattern.__not,
-  values: valueTransform((pattern.__not || pattern).__or)
-})
-
-const constructPattern = ({ not, values } = EMPTY_OBJECT, valueTransform = identity) => {
-  if (values == null || !values.length) {
-    return
-  }
-
-  const pattern = { __or: valueTransform(values) }
-  return not
-    ? { __not: pattern }
-    : pattern
 }
 
 @connectStore({
@@ -409,6 +506,13 @@ export default class New extends Component {
     }
   )
 
+  _constructPattern = vms => ({
+    $pool: constructPattern(vms.$pool),
+    power_state: vms.power_state === 'All' ? undefined : vms.power_state,
+    tags: constructPattern(vms.tags, tags => map(tags, tag => [ tag ])),
+    type: 'VM'
+  })
+
   _handleSubmit = async () => {
     const { props, state } = this
 
@@ -443,12 +547,7 @@ export default class New extends Component {
             type: 'map',
             collection: {
               type: 'fetchObjects',
-              pattern: {
-                $pool: constructPattern(vms.$pool),
-                power_state: vms.power_state === 'All' ? undefined : vms.power_state,
-                tags: constructPattern(vms.tags, tags => map(tags, tag => [ tag ])),
-                type: 'VM'
-              }
+              pattern: this._constructPattern(vms)
             },
             iteratee: {
               type: 'extractProperties',
@@ -628,16 +727,19 @@ export default class New extends Component {
                         </select>
                       </fieldset>
                       {smartBackupMode
-                        ? <Upgrade place='newBackup' required={3}>
-                          <GenericInput
-                            label={<span><Icon icon='vm' /> {_('vmsToBackup')}</span>}
-                            onChange={this.linkState('vmsParam')}
-                            required
-                            schema={SMART_SCHEMA}
-                            uiSchema={SMART_UI_SCHEMA}
-                            value={vms}
-                          />
-                        </Upgrade>
+                        ? <div>
+                          <Upgrade place='newBackup' required={3}>
+                            <GenericInput
+                              label={<span><Icon icon='vm' /> {_('vmsToBackup')}</span>}
+                              onChange={this.linkState('vmsParam')}
+                              required
+                              schema={SMART_SCHEMA}
+                              uiSchema={SMART_UI_SCHEMA}
+                              value={vms}
+                            />
+                          </Upgrade>
+                          <SmartBackupPreview pattern={this._constructPattern(vms)} />
+                        </div>
                         : <GenericInput
                           label={<span><Icon icon='vm' /> {_('vmsToBackup')}</span>}
                           onChange={this.linkState('vmsParam')}
@@ -657,12 +759,12 @@ export default class New extends Component {
                 onChange={this.linkState('scheduling')}
                 value={scheduling}
               />
+              <SchedulePreview cronPattern={scheduling.cronPattern} />
             </Section>
-            <Section icon='preview' title='preview' summary>
+            <Section title='action' summary>
               <Container>
                 <Row>
                   <Col>
-                    <SchedulePreview cronPattern={scheduling.cronPattern} />
                     {process.env.XOA_PLAN < 4 && backupInfo && process.env.XOA_PLAN < REQUIRED_XOA_PLAN[backupInfo.jobKey]
                       ? <Upgrade place='newBackup' available={REQUIRED_XOA_PLAN[backupInfo.jobKey]} />
                       : (smartBackupMode && process.env.XOA_PLAN < 3
@@ -683,8 +785,9 @@ export default class New extends Component {
                           <Button onClick={this._handleReset} size='large'>
                             {_('selectTableReset')}
                           </Button>
-                        </fieldset>)
-                  }
+                        </fieldset>
+                      )
+                    }
                   </Col>
                 </Row>
               </Container>

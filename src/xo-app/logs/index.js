@@ -31,7 +31,7 @@ import {
   isEmpty,
   map,
   orderBy
-  } from 'lodash'
+} from 'lodash'
 import {
   deleteJobsLog,
   subscribeJobsLogs
