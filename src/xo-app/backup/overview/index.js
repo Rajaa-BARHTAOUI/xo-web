@@ -91,18 +91,17 @@ const JOB_COLUMNS = [
   },
   {
     name: _('jobAction'),
-    itemRenderer: ({ pattern, redirect, schedule }, isScheduleUserMissing) => <fieldset>
+    itemRenderer: ({ redirect, schedule }, isScheduleUserMissing) => <fieldset>
       {!isScheduleUserMissing[schedule.id] && <Tooltip content={_('backupUserNotFound')}><Icon className='mr-1' icon='error' /></Tooltip>}
       <Link className='btn btn-sm btn-primary mr-1' to={`/backup/${schedule.id}/edit`}>
         <Icon icon='edit' />
       </Link>
       <ButtonGroup>
-        {pattern !== undefined && <ActionRowButton
+        {redirect && <ActionRowButton
           btnStyle='primary'
           handler={redirect}
-          handlerParam={pattern}
           icon='preview'
-          tooltip={_('redirectToMatchedVms')}
+          tooltip={_('redirectToMatchingVms')}
         />}
         <ActionRowButton
           icon='delete'
@@ -175,7 +174,7 @@ export default class Overview extends Component {
     }
   }
 
-  _redirectToMatchedVms = pattern => {
+  _redirectToMatchingVms = pattern => {
     this.context.router.push({
       pathname: '/home',
       query: { t: 'VM', s: constructFilter(pattern) }
@@ -199,8 +198,7 @@ export default class Overview extends Component {
         return {
           jobId: job.id,
           jobLabel: jobKeyToLabel[job.key] || _('unknownSchedule'),
-          redirect: this._redirectToMatchedVms,
-          pattern,
+          redirect: pattern !== undefined && (() => this._redirectToMatchingVms(pattern)),
           // Old versions of XenOrchestra use items[0]
           scheduleTag: get(items, '[0].values[0].tag') || get(items, '[1].values[0].tag') || schedule.id,
           schedule,
