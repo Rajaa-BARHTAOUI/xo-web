@@ -140,12 +140,28 @@ class Log extends BaseComponent {
             start
           } = call
 
+<<<<<<< ccef66eaaa95771ab380a2359cd887369ca4ed7d
           let id
           if (returnedValue != null) {
             id = returnedValue.id
             if (id === undefined && typeof returnedValue === 'string') {
               id = returnedValue
             }
+=======
+    return <li key={call.callKey} className='list-group-item'>
+      <strong className='text-info'>{call.method}: </strong><JobCallStateInfos end={end} error={error} /><br />
+      {map(call.params, (value, key) => [ <JobParam id={value} paramKey={key} key={key} />, <br /> ])}
+      {end !== undefined && _.keyValue(_('jobDuration'), <FormattedDuration duration={end - start} />)}
+      {returnedValue != null && returnedValue.size !== undefined && <JobTransferredDataInfos start={start} end={end} size={returnedValue.size} />}
+      {id !== undefined && <span>{' '}<JobReturn id={id} /></span>}
+      {call.error &&
+        <span className='text-danger'>
+          <Icon icon='error' />
+          {' '}
+          {call.error.message
+            ? <strong>{call.error.message}</strong>
+            : JSON.stringify(call.error)
+>>>>>>> fix erros
           }
 
           return predicate(call) && <li key={call.callKey} className='list-group-item'>
