@@ -8,7 +8,7 @@ import React from 'react'
 import renderXoItem from 'render-xo-item'
 import SortedTable from 'sorted-table'
 import { Text } from 'editable'
-import { concat, isEmpty, map, some } from 'lodash'
+import { concat, find, flatten, isEmpty, map, some } from 'lodash'
 import { connectStore, formatSize } from 'utils'
 import { Container, Row, Col } from 'grid'
 import { createGetObjectsOfType, createSelector } from 'selectors'
@@ -147,6 +147,8 @@ const COLUMNS = [
 
 const GROUPED_ACTIONS = [
   {
+    disabled: (selectedItems, vbdsByVdi) =>
+      some(map(selectedItems, vdi => vbdsByVdi[vdi.id]), 'attached'),
     handler: deleteVdis,
     icon: 'delete',
     label: _('deleteSelectedVdis'),
@@ -156,6 +158,11 @@ const GROUPED_ACTIONS = [
 
 const INDIVIDUAL_ACTIONS = [
   {
+    disabled: (vdi, vbdsByVdi) => {
+      console.log('  vbds   ', vbdsByVdi)
+      const vbd = vbdsByVdi[vdi.id]
+      return vbd !== undefined && vbd.attached
+    },
     handler: deleteVdi,
     icon: 'delete',
     label: _('deleteSelectedVdi'),
@@ -173,6 +180,13 @@ const FILTERS = {
 
 // ===================================================================
 
+@connectStore(() => {
+  return (state, props) => ({
+    vbds: createGetObjectsOfType('VBD')
+      .pick((_, { vdis }) => flatten(map(vdis, vdi => vdi.$VBDs)))
+      .sort(),
+  })
+})
 export default class SrDisks extends Component {
   _getAllVdis = createSelector(
     () => this.props.vdis,
@@ -181,8 +195,25 @@ export default class SrDisks extends Component {
     concat
   )
 
+  _getVbdsByVdi = createSelector(
+    this._getAllVdis,
+    () => this.props.vbds,
+    (vdis, vbds) =>
+      map(vdis, vdi => {
+        // console.log('** VDI ',vdi.id)
+        // console.log(vbds,' -_- ',find(vbds, vbd => vbd.VDI === vdi.id))
+        return find(vbds, { VDI: vdi.id })
+      })
+  )
+
   render () {
     const vdis = this._getAllVdis()
+    // console.log(vdis,' vbds ',this.props.vbds)
+    /* console.log(
+      ' *** ',
+      find(vdis, vdi => vdi.id === '7760c448-7fdb-4b5e-aa03-90bd9a9add61')
+    ) */
+    // console.log(' vbds by vdi ',this._getVbdsByVdi())
     return (
       <Container>
         <Row>
@@ -197,6 +228,7 @@ export default class SrDisks extends Component {
                 individualActions={INDIVIDUAL_ACTIONS}
                 shortcutsTarget='body'
                 stateUrlParam='s'
+                userData={this._getVbdsByVdi()}
               />
             ) : (
               <h4 className='text-xs-center'>{_('srNoVdis')}</h4>
