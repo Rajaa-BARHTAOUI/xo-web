@@ -56,6 +56,12 @@ const _addRef = (component, ref) => {
   title: propTypes.node.isRequired,
 })
 class GenericModal extends Component {
+  constructor (props) {
+    super(props)
+    // create a ref to store the textInput DOM element
+    this.refButton = React.createRef()
+  }
+
   _getBodyValue = () => {
     const { body } = this.refs
     if (body !== undefined) {
@@ -66,8 +72,9 @@ class GenericModal extends Component {
   }
 
   _resolve = (value = this._getBodyValue()) => {
-    this.props.resolve(value)
-    instance.close()
+    console.log('   Hello  ')
+    // this.props.resolve(value)
+    // instance.close()
   }
 
   _reject = () => {
@@ -75,9 +82,47 @@ class GenericModal extends Component {
     instance.close()
   }
 
+  _eventListener = event => {}
+
+  componentDidMount () {
+    const { id } = this.props
+
+    if (id) {
+      document
+        .getElementById(id)
+        .focus()
+        .addEventListener('keypress', event => {
+          event.preventDefault()
+          const { keyCode } = event
+          if (keyCode === 13) {
+            document.getElementById(id).click()
+          }
+        })
+    }
+  }
+
+  componentWillUnmount () {
+    const { id } = this.props
+    if (id) {
+      document.getElementById(id).removeEventListener('keypress', event => {
+        event.preventDefault()
+        const { keyCode } = event
+        if (keyCode === 13) {
+          document.getElementById(id).click()
+        }
+      })
+    }
+  }
+
+  _focusButton = (ref, id) => {
+    console.log(ref, ' Hello ', id)
+    if (id && ref) {
+      ref.focus()
+    }
+  }
+
   render () {
     const { buttons, icon, title } = this.props
-
     const body = _addRef(this.props.children, 'body')
 
     return (
@@ -95,23 +140,46 @@ class GenericModal extends Component {
         </ReactModal.Header>
         <ReactModal.Body>{body}</ReactModal.Body>
         <ReactModal.Footer>
-          {map(buttons, ({ label, tooltip, value, icon, ...props }, key) => {
-            const button = (
-              <Button onClick={() => this._resolve(value)} {...props}>
-                {icon !== undefined && <Icon icon={icon} fixedWidth />}
-                {label}
-              </Button>
-            )
-            return (
-              <span key={key}>
-                {tooltip !== undefined ? (
-                  <Tooltip content={tooltip}>{button}</Tooltip>
+          {map(
+            buttons,
+            ({ id, label, tooltip, value, icon, ...props }, key) => {
+              console.log('ID', id)
+              const button =
+                id === undefined ? (
+                  <Button
+                    id={id}
+                    onClick={() => this._resolve(value)}
+                    {...props}
+                  >
+                    {icon !== undefined && <Icon icon={icon} fixedWidth />}
+                    {label}
+                  </Button>
                 ) : (
-                  button
-                )}{' '}
-              </span>
-            )
-          })}
+                  <Button
+                    id={id}
+                    onClick={() => this._resolve(value)}
+                    ref={
+                      ref =>
+                        console.log('ref', ref) /* this._focusButton(ref, id) */
+                    }
+                    {...props}
+                  >
+                    {icon !== undefined && <Icon icon={icon} fixedWidth />}
+                    {label}
+                  </Button>
+                )
+
+              return (
+                <span key={key}>
+                  {tooltip !== undefined ? (
+                    <Tooltip content={tooltip}>{button}</Tooltip>
+                  ) : (
+                    button
+                  )}{' '}
+                </span>
+              )
+            }
+          )}
           {this.props.reject !== undefined && (
             <Button onClick={this._reject}>{_('genericCancel')}</Button>
           )}
@@ -149,7 +217,14 @@ export const chooseAction = ({ body, buttons, icon, title }) => {
 @injectIntl
 class StrongConfirm extends Component {
   state = {
-    buttons: [{ btnStyle: 'danger', label: _('confirmOk'), disabled: true }],
+    buttons: [
+      {
+        btnStyle: 'danger',
+        id: 'confirmButton',
+        label: _('confirmOk'),
+        disabled: true,
+      },
+    ],
   }
 
   _getStrongConfirmString = createSelector(
@@ -214,7 +289,9 @@ class StrongConfirm extends Component {
 
 // -----------------------------------------------------------------------------
 
-const ALERT_BUTTONS = [{ label: _('alertOk'), value: 'ok' }]
+const ALERT_BUTTONS = [
+  { id: 'confirmButton', label: _('alertOk'), value: 'ok' },
+]
 
 export const alert = (title, body) =>
   new Promise(resolve => {
@@ -228,29 +305,31 @@ export const alert = (title, body) =>
 
 // -----------------------------------------------------------------------------
 
-const CONFIRM_BUTTONS = [{ btnStyle: 'primary', label: _('confirmOk') }]
+const CONFIRM_BUTTONS = [
+  { btnStyle: 'primary', id: 'confirmButton', label: _('confirmOk') },
+]
 
 export const confirm = ({ body, icon = 'alarm', title, strongConfirm }) =>
   strongConfirm
     ? new Promise((resolve, reject) => {
-      modal(
-        <StrongConfirm
-          body={body}
-          icon={icon}
-          reject={reject}
-          resolve={resolve}
-          strongConfirm={strongConfirm}
-          title={title}
-        />,
-        reject
-      )
-    })
+        modal(
+          <StrongConfirm
+            body={body}
+            icon={icon}
+            reject={reject}
+            resolve={resolve}
+            strongConfirm={strongConfirm}
+            title={title}
+          />,
+          reject
+        )
+      })
     : chooseAction({
-      body,
-      buttons: CONFIRM_BUTTONS,
-      icon,
-      title,
-    })
+        body,
+        buttons: CONFIRM_BUTTONS,
+        icon,
+        title,
+      })
 
 // -----------------------------------------------------------------------------
 
